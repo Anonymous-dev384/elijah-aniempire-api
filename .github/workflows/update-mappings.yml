@@ -1,0 +1,34 @@
+name: Daily Mappings Update
+on:
+  schedule:
+    - cron: '0 0 * * *'  # Runs at midnight UTC daily
+  workflow_dispatch:      # Allows manual trigger
+    inputs:
+      mode:
+        description: 'Update Mode'
+        required: true
+        default: 'check'
+        type: choice
+        options:
+        - check
+        - force
+        - reset
+
+jobs:
+  update-mappings:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Update API
+        run: |
+          MODE="${{ github.event.inputs.mode }}"
+          URL="https://everyday-leela-elijahdev-f7780186.koyeb.app/admin/update-mappings"
+          
+          if [ "$MODE" == "reset" ]; then
+            URL="$URL?reset=true"
+          elif [ "$MODE" == "force" ]; then
+            URL="$URL?force=true"
+          fi
+          
+          echo "Triggering mode: $MODE"
+          curl -f -X POST "$URL" \
+          -H "Authorization: Bearer ${{ secrets.API_KEY }}"

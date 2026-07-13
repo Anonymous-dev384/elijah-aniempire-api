@@ -1,0 +1,47 @@
+[ {
+  "type" : "TV",
+  "anidb_id" : 1,
+  "anilist_id" : 290,
+  "animecountdown_id" : 36462,
+  "animenewsnetwork_id" : 14,
+  "anime-planet_id" : "crest-of-the-stars",
+  "anisearch_id" : 3039,
+  "imdb_id" : "tt0286390",
+  "kitsu_id" : 265,
+  "livechart_id" : 4157,
+  "mal_id" : 290,
+  "simkl_id" : 36462,
+  "themoviedb_id" : 26209,
+  "tvdb_id" : 72025,
+  "season" : {
+    "tvdb" : 1,
+    "tmdb" : 1
+  }
+}, {
+  "type" : "OVA",
+  "anidb_id" : 2,
+  "anilist_id" : 300,
+  "animecountdown_id" : 38433,
+  "animenewsnetwork_id" : 382,
+  "anime-planet_id" : "3x3-eyes",
+  "anisearch_id" : 2747,
+  "kitsu_id" : 7749,
+  "livechart_id" : 5777,
+  "mal_id" : 300,
+  "simkl_id" : 38433,
+  "themoviedb_id" : 62913,
+  "tvdb_id" : 70973,
+  "season" : {
+    "tvdb" : 1,
+    "tmdb" : 1
+  }
+}, {
+  "type" : "OVA",
+  "anidb_id" : 3,
+  "anilist_id" : 1225,
+  "animecountdown_id" : 40976,
+  "animenewsnetwork_id" : 792,
+  "anime-planet_id" : "3x3-eyes-seima-densetsu",
+  "anisearch_id" : 3354,
+  "kitsu_id" : 1102,
+  "livechar
