@@ -1,50 +1,58 @@
-const express = require('express');
-const { adminSupabase } = require('../lib/supabase');
-const { requireAuth, requireAdmin } = require('../middleware/auth');
+const express = require('express')
+const router = express.Router()
+const auth = require('../middleware/auth')
+const { supabase } = require('../config/supabaseClient')
 
-const router = express.Router();
-
-// POST /api/activity/rewards - admin only; distribute rewards based on a payload
-router.post('/rewards', requireAuth, requireAdmin, async (req, res) => {
-  const { action } = req.body; // e.g., 'daily', 'event', or custom rules
+// POST /api/activity/rewards - trigger reward distribution
+// Body can be: { user_id?, type: 'activity'|'daily'|'achievement', amount, reason }
+// If user_id omitted and you provide criteria, this endpoint can be used to bulk-award (admin use)
+router.post('/rewards', auth, async (req, res) => {
   try {
-    // This is a simple example: grant 10 credits to all active users
-    if (action === 'daily') {
-      const { data, error } = await adminSupabase.from('users').update({ credits: adminSupabase.rpc ? 0 : 0 });
-      // Above update is a placeholder; implement business rules as needed
-      return res.json({ message: 'Rewards dispatched (placeholder)', debug: { data, error } });
+    const { user_id, type = 'activity', amount = 0, reason = 'reward' } = req.body
+
+    if (!amount || isNaN(amount)) return res.status(400).json({ error: 'amount is required and must be a number' })
+
+    // If user_id provided, award that user
+    if (user_id) {
+      // Update user_stats (xp / credits) atomically via single update
+      const { data, error } = await supabase
+        .from('user_stats')
+        .update({ xp: supabase.raw('xp + ?', [amount]) })
+        .eq('user_id', user_id)
+
+      // Fallback: if no stats row, insert one
+      if (error) {
+        console.warn('update user_stats error, attempting upsert', error.message)
+        // try upsert
+        const upsert = await supabase.from('user_stats').upsert({ user_id, xp: amount }, { onConflict: ['user_id'] })
+        if (upsert.error) return res.status(500).json({ error: upsert.error.message })
+        return res.json({ ok: true, message: 'Reward granted', details: upsert.data })
+      }
+
+      // record activity
+      await supabase.from('activity_rewards').insert([{ user_id, amount, type, reason }])
+
+      return res.json({ ok: true, message: 'Reward granted', details: data })
     }
 
-    return res.status(400).json({ error: 'Unknown action' });
-  } catch (err) {
-    console.error(err);
-    return res.status(500).json({ error: 'Server error' });
-  }
-});
+    // If no user_id, this route acts as an admin broadcast (not allowed for normal users)
+    // For safety, check user's role in metadata (simple check) - require admin flag
+    const requester = req.user
+    if (!requester?.app_metadata?.is_admin) return res.status(403).json({ error: 'Only admins can broadcast rewards' })
 
-// GET /api/achievements - list achievement metadata
-router.get('/achievements', async (req, res) => {
-  try {
-    const { data, error } = await adminSupabase.from('achievements_meta').select('*');
-    if (error) return res.status(500).json({ error: error.message });
-    return res.json({ achievements: data });
-  } catch (err) {
-    console.error(err);
-    return res.status(500).json({ error: 'Server error' });
-  }
-});
+    // Example: award all users a small amount (dangerous -- admin only)
+    const { data: users, error: uerr } = await supabase.from('profiles').select('id')
+    if (uerr) return res.status(500).json({ error: uerr.message })
 
-// GET /api/leaderboard - top players by xp
-router.get('/leaderboard', async (req, res) => {
-  const { limit = 50 } = req.query;
-  try {
-    const { data, error } = await adminSupabase.from('users').select('id, username, xp, credits').order('xp', { ascending: false }).limit(Number(limit));
-    if (error) return res.status(500).json({ error: error.message });
-    return res.json({ leaderboard: data });
-  } catch (err) {
-    console.error(err);
-    return res.status(500).json({ error: 'Server error' });
-  }
-});
+    const updates = users.map(u => ({ user_id: u.id, amount, type, reason }))
+    await supabase.from('activity_rewards').insert(updates)
 
-module.exports = router;
+    // NOTE: More robust implementations should use RPCs / server-side transactions to update user_stats.
+    return res.json({ ok: true, message: `Broadcasted ${amount} ${type} to ${users.length} users` })
+  } catch (err) {
+    console.error(err)
+    return res.status(500).json({ error: 'Failed to process rewards' })
+  }
+})
+
+module.exports = router

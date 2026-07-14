@@ -1,36 +1,24 @@
-const jwt = require('jsonwebtoken');
-const { adminSupabase } = require('../lib/supabase');
+const { supabase } = require('../config/supabaseClient')
 
-const JWT_SECRET = process.env.JWT_SECRET;
-if (!JWT_SECRET) console.warn('JWT_SECRET is not set.');
-
-async function requireAuth(req, res, next) {
+// Auth middleware that validates a Supabase access token sent in Authorization: Bearer <token>
+// Attaches `req.user` as the Supabase user object on success.
+module.exports = async function auth(req, res, next) {
   try {
-    const auth = req.headers.authorization;
-    if (!auth || !auth.startsWith('Bearer ')) return res.status(401).json({ error: 'Missing token' });
-    const token = auth.split(' ')[1];
-    const payload = jwt.verify(token, JWT_SECRET);
-    req.user = { id: payload.sub };
-    return next();
+    const authHeader = req.headers.authorization || ''
+    const match = authHeader.match(/^Bearer (.+)$/)
+    if (!match) return res.status(401).json({ error: 'Missing Authorization header' })
+
+    const token = match[1]
+    // supabase.auth.getUser accepts { access_token } in v2 SDK
+    const { data, error } = await supabase.auth.getUser(token)
+    if (error || !data?.user) {
+      return res.status(401).json({ error: 'Invalid or expired token' })
+    }
+
+    req.user = data.user
+    return next()
   } catch (err) {
-    return res.status(401).json({ error: 'Invalid token' });
+    console.error('Auth middleware error', err)
+    return res.status(500).json({ error: 'Authentication failed' })
   }
 }
-
-async function requireAdmin(req, res, next) {
-  try {
-    const userId = req.user && req.user.id;
-    if (!userId) return res.status(401).json({ error: 'Unauthorized' });
-    const { data, error } = await adminSupabase.from('users').select('role').eq('id', userId).single();
-    if (error || !data) return res.status(403).json({ error: 'Forbidden' });
-    if (data.role !== 'admin' && data.role !== 'staff') return res.status(403).json({ error: 'Forbidden' });
-    return next();
-  } catch (err) {
-    return res.status(500).json({ error: 'Server error' });
-  }
-}
-
-module.exports = {
-  requireAuth,
-  requireAdmin
-};

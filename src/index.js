@@ -11,6 +11,8 @@ const guildRoutes = require('./routes/guilds');
 const userRoutes = require('./routes/users');
 const chatRoutes = require('./routes/chat');
 const activityRoutes = require('./routes/activity');
+const leaderboardRoutes = require('./routes/leaderboard');
+const achievementRoutes = require('./routes/achievements');
 
 const app = express();
 const PORT = process.env.PORT || 4000;
@@ -27,6 +29,8 @@ app.use('/api/guilds', guildRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/chat', chatRoutes);
 app.use('/api/activity', activityRoutes);
+app.use('/api/leaderboard', leaderboardRoutes);
+app.use('/api/achievements', achievementRoutes);
 
 // 404
 app.use((req, res) => res.status(404).json({ error: 'Not found' }));
